@@ -85,9 +85,14 @@ export default function CalendarPage() {
 
   const handleDateClick = (arg: any) => {
     const clickedDate = arg.dateStr;
-    const today = new Date().toISOString().split('T')[0];
+    // Use local date (IST) — not UTC
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
 
-    // Only allow annotation on past or today's dates
+    // Allow today and past dates, block future
     if (clickedDate > today) return;
 
     setSelectedDate(clickedDate);
