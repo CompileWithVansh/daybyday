@@ -8,7 +8,7 @@ interface PhotoAnimationProps {
 }
 
 export function PhotoAnimation({ position }: PhotoAnimationProps) {
-  const isMeeting = position >= 0.95;
+  const isMeeting = position >= 1.0;
   
   // Distance decreases as position increases
   // At position 0: max gap (100% apart)
