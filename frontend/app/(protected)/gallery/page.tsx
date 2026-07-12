@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { getPhotos, uploadBatch, createAlbum } from '@/actions/gallery.actions';
+import { getPhotos, uploadBatch, createAlbum, deletePhoto } from '@/actions/gallery.actions';
 import { groupPhotosByMonth, type PhotoGroup } from '@/lib/gallery';
 import { PinkButton } from '@/components/PinkButton';
 import { PinkCard } from '@/components/PinkCard';
@@ -18,6 +18,8 @@ export default function GalleryPage() {
   const [albumName, setAlbumName] = useState('');
   const [creatingAlbum, setCreatingAlbum] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -74,6 +76,8 @@ export default function GalleryPage() {
     if (result.success) {
       setAlbumName('');
       setShowAlbumModal(false);
+      setSuccessMsg(`Album "${albumName.trim()}" created!`);
+      setTimeout(() => setSuccessMsg(null), 3000);
     } else {
       setError(result.error || 'Failed to create album');
     }
@@ -82,13 +86,8 @@ export default function GalleryPage() {
   }
 
   function getImageUrl(photo: Photo): string {
-    const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
-    const url = photo.image?.url || '';
-    // If URL is relative, prepend the Strapi base URL
-    if (url.startsWith('/')) {
-      return `${strapiUrl}${url}`;
-    }
-    return url;
+    // Prisma stores the URL directly in imageUrl, with an image compatibility layer
+    return photo.imageUrl || photo.image?.url || '';
   }
 
   if (loading) {
@@ -137,6 +136,13 @@ export default function GalleryPage() {
         </div>
       )}
 
+      {/* Success message */}
+      {successMsg && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+          {successMsg}
+        </div>
+      )}
+
       {/* Empty state */}
       {photos.length === 0 && !error && (
         <PinkCard className="text-center py-12">
@@ -173,7 +179,7 @@ export default function GalleryPage() {
         </section>
       ))}
 
-      {/* Lightbox placeholder (state set, component in task 10.3) */}
+      {/* Lightbox with delete option */}
       {selectedPhoto && (
         <div
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
@@ -185,14 +191,35 @@ export default function GalleryPage() {
             <img
               src={getImageUrl(selectedPhoto)}
               alt={selectedPhoto.eventTag || 'Gallery photo'}
-              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+              className="max-w-full max-h-[80vh] object-contain rounded-lg"
             />
+            {/* Close button */}
             <button
               onClick={() => setSelectedPhoto(null)}
-              className="absolute top-2 right-2 bg-white/90 text-pink-900 rounded-full w-8 h-8 flex items-center justify-center font-bold hover:bg-white transition-colors"
+              className="absolute top-2 right-2 bg-white/90 text-pink-900 rounded-full w-10 h-10 flex items-center justify-center font-bold hover:bg-white transition-colors"
               aria-label="Close lightbox"
             >
               ×
+            </button>
+            {/* Delete button */}
+            <button
+              onClick={async () => {
+                if (!confirm('Delete this photo? This cannot be undone.')) return;
+                setDeleting(true);
+                const result = await deletePhoto(selectedPhoto.id);
+                if (result.success) {
+                  setSelectedPhoto(null);
+                  await fetchPhotos();
+                } else {
+                  setError(result.error || 'Failed to delete photo');
+                }
+                setDeleting(false);
+              }}
+              disabled={deleting}
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+              aria-label="Delete photo"
+            >
+              {deleting ? '⏳ Deleting...' : '🗑️ Delete'}
             </button>
           </div>
         </div>

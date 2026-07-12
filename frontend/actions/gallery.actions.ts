@@ -278,3 +278,32 @@ export async function createAlbum(name: string): Promise<CreateAlbumResult> {
     };
   }
 }
+
+/**
+ * Deletes a photo by ID.
+ * Only the photo owner can delete it.
+ */
+export async function deletePhoto(id: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated' };
+
+    // Verify ownership
+    const photo = await prisma.photo.findFirst({
+      where: { id, userId: user.id },
+    });
+
+    if (!photo) {
+      return { success: false, error: 'Photo not found or you do not have permission to delete it' };
+    }
+
+    await prisma.photo.delete({ where: { id } });
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: 'Unable to delete photo. Please try again.',
+    };
+  }
+}
