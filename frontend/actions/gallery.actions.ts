@@ -376,3 +376,26 @@ export async function deletePhoto(id: number): Promise<{ success: boolean; error
     };
   }
 }
+
+/**
+ * Deletes an album and all its photos.
+ */
+export async function deleteAlbum(id: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated' };
+
+    // Delete all photos in the album first
+    await prisma.photo.deleteMany({ where: { albumId: id } });
+
+    // Delete the album
+    await prisma.album.delete({ where: { id } });
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: 'Unable to delete album. Please try again.',
+    };
+  }
+}

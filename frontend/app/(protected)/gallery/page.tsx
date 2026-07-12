@@ -8,6 +8,7 @@ import {
   getAlbums,
   deletePhoto,
   uploadToAlbum,
+  deleteAlbum,
 } from '@/actions/gallery.actions';
 import { groupPhotosByMonth, type PhotoGroup } from '@/lib/gallery';
 import { PinkButton } from '@/components/PinkButton';
@@ -165,12 +166,28 @@ export default function GalleryPage() {
             <span className="text-pink-400 text-sm">
               {activeAlbum.photos.length} photo{activeAlbum.photos.length !== 1 ? 's' : ''}
             </span>
-            <div className="ml-auto">
+            <div className="ml-auto flex gap-2">
+              <button
+                onClick={async () => {
+                  if (!confirm(`Delete album "${activeAlbum.name}" and all its photos?`)) return;
+                  const result = await deleteAlbum(activeAlbum.id);
+                  if (result.success) {
+                    setActiveAlbum(null);
+                    await fetchAll();
+                  } else {
+                    setError(result.error || 'Failed to delete album');
+                  }
+                }}
+                className="bg-black/5 text-red-500 rounded-xl px-3 py-2 text-sm font-medium hover:bg-red-50 transition-colors"
+                aria-label="Delete album"
+              >
+                🗑️
+              </button>
               <PinkButton
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
               >
-                {uploading ? 'Uploading...' : 'Upload to Album'}
+                {uploading ? 'Uploading...' : 'Upload'}
               </PinkButton>
               <input
                 ref={fileInputRef}

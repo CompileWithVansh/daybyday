@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 
@@ -23,7 +24,7 @@ interface SetMeetingDateResult {
 
 /**
  * Fetches the most recently set meeting date (shared between both users).
- * Returns the latest meeting date with the user who set it.
+ * Orders by createdAt desc to get the latest one that was SET.
  */
 export async function getMeetingDate(): Promise<GetMeetingDateResult> {
   try {
@@ -31,7 +32,7 @@ export async function getMeetingDate(): Promise<GetMeetingDateResult> {
     if (!user) return { success: false, error: 'Not authenticated' };
 
     const meetingDate = await prisma.meetingDate.findFirst({
-      orderBy: { date: 'desc' },
+      orderBy: { createdAt: 'desc' },
       include: { setBy: { select: { displayName: true, id: true } } },
     });
 
@@ -72,6 +73,9 @@ export async function setMeetingDate(date: string): Promise<SetMeetingDateResult
         setById: user.id,
       },
     });
+
+    revalidatePath('/home');
+    revalidatePath('/settings');
 
     return { success: true };
   } catch (error) {
