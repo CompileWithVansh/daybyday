@@ -193,8 +193,19 @@ export default function GalleryPage() {
               alt={selectedPhoto.eventTag || 'Gallery photo'}
               className="max-w-full max-h-[85vh] object-contain rounded-lg"
             />
-            {/* Top right: small delete + close */}
+            {/* Top right: download + delete + close */}
             <div className="absolute top-3 right-3 flex gap-2">
+              <a
+                href={getImageUrl(selectedPhoto)}
+                download={`daybyday-${selectedPhoto.id}.jpg`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-black/40 backdrop-blur-sm text-white/70 rounded-full w-10 h-10 flex items-center justify-center hover:bg-white hover:text-pink-600 transition-all text-sm"
+                aria-label="Download photo"
+                onClick={(e) => e.stopPropagation()}
+              >
+                📥
+              </a>
               <button
                 onClick={async () => {
                   if (!confirm('Delete this photo?')) return;
@@ -222,17 +233,6 @@ export default function GalleryPage() {
                 ×
               </button>
             </div>
-            {/* Download button — bottom center, main action */}
-            <a
-              href={getImageUrl(selectedPhoto)}
-              download={`daybyday-${selectedPhoto.id}.jpg`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white text-pink-600 px-6 py-3 rounded-2xl font-medium hover:bg-pink-50 transition-colors flex items-center gap-2 shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              📥 Download
-            </a>
           </div>
         </div>
       )}
