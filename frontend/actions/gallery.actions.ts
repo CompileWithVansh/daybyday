@@ -19,6 +19,8 @@ interface PhotoResponse {
 interface AlbumResponse {
   id: number;
   name: string;
+  photoCount: number;
+  coverUrl: string | null;
   photos: PhotoResponse[];
   createdAt: string;
   updatedAt: string;
@@ -210,7 +212,7 @@ export async function uploadBatch(
 }
 
 /**
- * Fetches all albums with their photos populated.
+ * Fetches all albums with photo count and first photo thumbnail.
  */
 export async function getAlbums(): Promise<GetAlbumsResult> {
   try {
@@ -230,6 +232,8 @@ export async function getAlbums(): Promise<GetAlbumsResult> {
     const mapped: AlbumResponse[] = albums.map((album) => ({
       id: album.id,
       name: album.name,
+      photoCount: album.photos.length,
+      coverUrl: album.photos.length > 0 ? album.photos[0].imageUrl : null,
       photos: album.photos.map((p) => ({
         id: p.id,
         imageUrl: p.imageUrl,
@@ -250,6 +254,71 @@ export async function getAlbums(): Promise<GetAlbumsResult> {
     return {
       success: false,
       error: 'Unable to fetch albums. Please try again.',
+    };
+  }
+}
+
+/**
+ * Uploads a photo to a specific album.
+ * @param formData - FormData containing the file under 'files' key
+ * @param albumId - The album to upload into
+ */
+export async function uploadToAlbum(
+  formData: FormData,
+  albumId: number
+): Promise<UploadBatchResult> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated' };
+
+    const files = formData.getAll('files');
+    const uploadedPhotos: PhotoResponse[] = [];
+
+    for (const file of files) {
+      if (!(file instanceof File)) continue;
+
+      try {
+        const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+
+        const uploadResult = await uploadToCloudinary(buffer, 'daybyday/gallery');
+
+        const photo = await prisma.photo.create({
+          data: {
+            imageUrl: uploadResult.url,
+            uploadDate: new Date(),
+            eventTag: null,
+            userId: user.id,
+            albumId: albumId,
+          },
+          include: { user: { select: { id: true, displayName: true } } },
+        });
+
+        uploadedPhotos.push({
+          id: photo.id,
+          imageUrl: photo.imageUrl,
+          image: { url: photo.imageUrl },
+          uploadDate: photo.uploadDate.toISOString().split('T')[0],
+          eventTag: photo.eventTag,
+          user: { id: photo.user.id, displayName: photo.user.displayName },
+          albumId: photo.albumId,
+          createdAt: photo.createdAt.toISOString(),
+          updatedAt: photo.updatedAt.toISOString(),
+        });
+      } catch {
+        continue;
+      }
+    }
+
+    if (uploadedPhotos.length === 0 && files.length > 0) {
+      return { success: false, error: 'All uploads failed. Please try again.' };
+    }
+
+    return { success: true, data: uploadedPhotos };
+  } catch (error) {
+    return {
+      success: false,
+      error: 'Unable to upload photos to album. Please try again.',
     };
   }
 }
