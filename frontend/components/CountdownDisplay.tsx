@@ -10,9 +10,9 @@ export function CountdownDisplay({ daysRemaining }: CountdownDisplayProps) {
       <div className="text-center py-6">
         <p className="text-7xl sm:text-8xl font-bold text-pink-500 mb-2">🎉</p>
         <p className="text-2xl font-bold text-pink-700">
-          It&apos;s Meeting Day!
+          Finally we are together
         </p>
-        <p className="text-sm text-pink-400 mt-1">Finally together 💕</p>
+        <p className="text-sm text-pink-400 mt-1">It&apos;s our day 💕</p>
       </div>
     );
   }

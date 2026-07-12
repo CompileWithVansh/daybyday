@@ -22,22 +22,22 @@ export function PhotoAnimation({ position }: PhotoAnimationProps) {
           initial={{ scale: 0, rotate: -10 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ type: 'spring', stiffness: 200 }}
-          className="relative w-48 h-48 sm:w-56 sm:h-56 rounded-full overflow-hidden border-4 border-pink-400 shadow-xl"
+          className="relative w-56 h-72 sm:w-64 sm:h-80 rounded-2xl overflow-hidden border-4 border-pink-400 shadow-xl bg-pink-50"
         >
           <Image
             src="/images/finaltimeline_end.png"
             alt="Together!"
             fill
-            className="object-cover"
+            className="object-contain"
           />
         </motion.div>
         <motion.p
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="mt-4 text-xl font-bold text-pink-600"
+          className="mt-4 text-lg font-bold text-pink-600"
         >
-          Together at last! 💕
+          Together forever 💕
         </motion.p>
       </div>
     );
