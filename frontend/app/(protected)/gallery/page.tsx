@@ -179,48 +179,60 @@ export default function GalleryPage() {
         </section>
       ))}
 
-      {/* Lightbox with delete option */}
+      {/* Lightbox with delete and download options */}
       {selectedPhoto && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
           onClick={() => setSelectedPhoto(null)}
           role="dialog"
           aria-label="Photo lightbox"
         >
-          <div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+          <div className="relative max-w-4xl max-h-[90vh] w-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
             <img
               src={getImageUrl(selectedPhoto)}
               alt={selectedPhoto.eventTag || 'Gallery photo'}
-              className="max-w-full max-h-[80vh] object-contain rounded-lg"
+              className="max-w-full max-h-[85vh] object-contain rounded-lg"
             />
-            {/* Close button */}
-            <button
-              onClick={() => setSelectedPhoto(null)}
-              className="absolute top-2 right-2 bg-white/90 text-pink-900 rounded-full w-10 h-10 flex items-center justify-center font-bold hover:bg-white transition-colors"
-              aria-label="Close lightbox"
+            {/* Top right: small delete + close */}
+            <div className="absolute top-3 right-3 flex gap-2">
+              <button
+                onClick={async () => {
+                  if (!confirm('Delete this photo?')) return;
+                  setDeleting(true);
+                  const result = await deletePhoto(selectedPhoto.id);
+                  if (result.success) {
+                    setSelectedPhoto(null);
+                    await fetchPhotos();
+                  } else {
+                    setError(result.error || 'Failed to delete');
+                  }
+                  setDeleting(false);
+                }}
+                disabled={deleting}
+                className="bg-black/40 backdrop-blur-sm text-white/70 rounded-full w-10 h-10 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all text-sm"
+                aria-label="Delete photo"
+              >
+                🗑️
+              </button>
+              <button
+                onClick={() => setSelectedPhoto(null)}
+                className="bg-black/40 backdrop-blur-sm text-white rounded-full w-10 h-10 flex items-center justify-center hover:bg-black/60 transition-all font-bold text-xl"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            {/* Download button — bottom center, main action */}
+            <a
+              href={getImageUrl(selectedPhoto)}
+              download={`daybyday-${selectedPhoto.id}.jpg`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white text-pink-600 px-6 py-3 rounded-2xl font-medium hover:bg-pink-50 transition-colors flex items-center gap-2 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
             >
-              ×
-            </button>
-            {/* Delete button */}
-            <button
-              onClick={async () => {
-                if (!confirm('Delete this photo? This cannot be undone.')) return;
-                setDeleting(true);
-                const result = await deletePhoto(selectedPhoto.id);
-                if (result.success) {
-                  setSelectedPhoto(null);
-                  await fetchPhotos();
-                } else {
-                  setError(result.error || 'Failed to delete photo');
-                }
-                setDeleting(false);
-              }}
-              disabled={deleting}
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center gap-2"
-              aria-label="Delete photo"
-            >
-              {deleting ? '⏳ Deleting...' : '🗑️ Delete'}
-            </button>
+              📥 Download
+            </a>
           </div>
         </div>
       )}

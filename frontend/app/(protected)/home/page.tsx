@@ -11,10 +11,9 @@ export default async function HomePage() {
 
   const meetingDate = new Date(result.data.date + 'T00:00:00');
   const startDate = new Date(result.data.startDate + 'T00:00:00');
-  const now = new Date();
 
-  const daysRemaining = calculateDaysRemaining(meetingDate, now);
-  const photoPosition = calculatePhotoPosition(startDate, meetingDate, now);
+  const daysRemaining = calculateDaysRemaining(meetingDate);
+  const photoPosition = calculatePhotoPosition(startDate, meetingDate);
 
   return (
     <HomeContent
