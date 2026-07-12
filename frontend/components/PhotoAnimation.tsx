@@ -89,12 +89,7 @@ export function PhotoAnimation({ position }: PhotoAnimationProps) {
         </div>
       </div>
 
-      {/* Distance indicator */}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-center">
-        <p className="text-xs text-pink-400">
-          {Math.round(gapPercent)}% apart
-        </p>
-      </div>
+      {/* Distance indicator removed - visual gap speaks for itself */}
 
       {/* Vansh - Right */}
       <motion.div
