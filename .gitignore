@@ -1,0 +1,12 @@
+node_modules/
+.next/
+.env
+.env.local
+*.log
+.DS_Store
+backend/node_modules/
+backend/.env
+backend/.tmp/
+backend/.cache/
+backend/build/
+backend/dist/

@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                Int       @id @default(autoincrement())
+  username          String    @unique
+  email             String    @unique
+  password          String
+  displayName       String
+  avatar            String?
+  diaryPin          String?
+  pinFailedAttempts Int       @default(0)
+  pinLockedUntil    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  meetingDates        MeetingDate[]
+  calendarAnnotations CalendarAnnotation[]
+  diaryEntries        DiaryEntry[]
+  photos              Photo[]
+}
+
+model MeetingDate {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  startDate DateTime
+  setBy     User     @relation(fields: [setById], references: [id])
+  setById   Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CalendarAnnotation {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  completed Boolean  @default(false)
+  emojis    String   @default("[]")
+  note      String   @default("")
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DiaryEntry {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  title     String   @default("")
+  content   String   @default("")
+  mood      String   @default("")
+  weather   String   @default("")
+  images    String   @default("[]")
+  voiceNote String?
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Photo {
+  id         Int      @id @default(autoincrement())
+  imageUrl   String
+  uploadDate DateTime
+  eventTag   String?
+  user       User     @relation(fields: [userId], references: [id])
+  userId     Int
+  album      Album?   @relation(fields: [albumId], references: [id])
+  albumId    Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Album {
+  id        Int      @id @default(autoincrement())
+  name      String
+  photos    Photo[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
