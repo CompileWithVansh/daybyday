@@ -39,7 +39,7 @@ export async function getAnnotations(
     if (!user) return { success: false, error: 'Not authenticated' };
 
     const lastDay = getLastDayOfMonth(month, year);
-    const startDate = new Date(`${year}-${String(month).padStart(2, '0')}-01`);
+    const startDate = new Date(`${year}-${String(month).padStart(2, '0')}-01T00:00:00.000Z`);
     const endDate = new Date(`${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59.999Z`);
 
     const annotations = await prisma.calendarAnnotation.findMany({
@@ -88,13 +88,15 @@ export async function markDate(
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Not authenticated' };
 
-    const dateObj = new Date(date);
+    const dateObj = new Date(date + 'T12:00:00.000Z');
+    const dayStart = new Date(date + 'T00:00:00.000Z');
+    const dayEnd = new Date(date + 'T23:59:59.999Z');
 
     // Find existing annotation for this user + date
     const existing = await prisma.calendarAnnotation.findFirst({
       where: {
         userId: user.id,
-        date: dateObj,
+        date: { gte: dayStart, lte: dayEnd },
       },
     });
 
@@ -141,14 +143,16 @@ export async function addEmoji(
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Not authenticated' };
 
-    const dateObj = new Date(date);
+    const dateObj = new Date(date + 'T12:00:00.000Z');
+    const dayStart = new Date(date + 'T00:00:00.000Z');
+    const dayEnd = new Date(date + 'T23:59:59.999Z');
     const emojisJson = JSON.stringify(emojis);
 
     // Find existing annotation for this user + date
     const existing = await prisma.calendarAnnotation.findFirst({
       where: {
         userId: user.id,
-        date: dateObj,
+        date: { gte: dayStart, lte: dayEnd },
       },
     });
 
@@ -190,13 +194,15 @@ export async function updateAnnotation(
     const user = await getCurrentUser();
     if (!user) return { success: false, error: 'Not authenticated' };
 
-    const dateObj = new Date(date);
+    const dateObj = new Date(date + 'T12:00:00.000Z');
+    const dayStart = new Date(date + 'T00:00:00.000Z');
+    const dayEnd = new Date(date + 'T23:59:59.999Z');
 
     // Find existing annotation for this user + date
     const existing = await prisma.calendarAnnotation.findFirst({
       where: {
         userId: user.id,
-        date: dateObj,
+        date: { gte: dayStart, lte: dayEnd },
       },
     });
 

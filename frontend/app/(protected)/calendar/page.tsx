@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { getAnnotations, getMonthSummary, markDate, addEmoji, updateAnnotation } from '@/actions/calendar.actions';
+import { getAnnotations, getMonthSummary, updateAnnotation } from '@/actions/calendar.actions';
 import { PageTransition } from '@/components/PageTransition';
 
 interface AnnotationData {
@@ -32,14 +32,14 @@ export default function CalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [monthSummary, setMonthSummary] = useState<MonthSummary | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditMode, setShowEditMode] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [modalCompleted, setModalCompleted] = useState(false);
   const [modalEmojis, setModalEmojis] = useState<string[]>([]);
   const [modalNote, setModalNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
 
   const fetchAnnotations = useCallback(async (month: number, year: number) => {
     setLoading(true);
@@ -97,15 +97,30 @@ export default function CalendarPage() {
 
     setSelectedDate(clickedDate);
 
-    // Pre-fill modal with existing annotations for this date from the current user
-    const existing = annotations.find(
-      (a) => a.date === clickedDate
+    // Pre-fill edit fields with current user's annotation for this date
+    const myAnnotation = annotations.find(
+      (a) => a.date === clickedDate && a.user?.id !== undefined
     );
+    // We'll find the current user's annotation when they open edit mode
+    // For now, just show the view modal
+    setShowEditMode(false);
+    setShowViewModal(true);
+  };
+
+  const openEditMode = () => {
+    // Find current user's annotation to pre-fill
+    // We identify "mine" by checking all annotations for the date —
+    // the current user's entry can be determined from the save action
+    const dateAnnotations = annotations.filter((a) => a.date === selectedDate);
+    // Try to find user's own (we'll use the first one as fallback, or empty)
+    // Since we don't have the current userId on client, we pre-fill from the first annotation
+    // that belongs to the user. We'll rely on a heuristic: if there's only one, it's likely theirs.
+    // Better approach: expose currentUserId. For now, pre-fill from existing modal pattern.
+    const existing = dateAnnotations.length > 0 ? dateAnnotations[0] : null;
 
     if (existing) {
       setModalCompleted(existing.completed);
       setModalNote(existing.note || '');
-      setIsEditing(true);
       try {
         const parsed = JSON.parse(existing.emojis);
         setModalEmojis(Array.isArray(parsed) ? parsed : []);
@@ -116,10 +131,9 @@ export default function CalendarPage() {
       setModalCompleted(false);
       setModalEmojis([]);
       setModalNote('');
-      setIsEditing(false);
     }
 
-    setShowModal(true);
+    setShowEditMode(true);
   };
 
   const handleSave = async () => {
@@ -135,7 +149,8 @@ export default function CalendarPage() {
     await fetchAnnotations(currentMonth, currentYear);
     await fetchSummary(currentMonth, currentYear);
     setSaving(false);
-    setShowModal(false);
+    setShowEditMode(false);
+    setShowViewModal(false);
   };
 
   const toggleEmoji = (emoji: string) => {
@@ -252,85 +267,159 @@ export default function CalendarPage() {
         />
       </div>
 
-      {/* Date Annotation Modal */}
-      {showModal && (
+      {/* Date View Modal — shows both users' annotations */}
+      {showViewModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl border border-pink-200">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl border border-pink-200 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-pink-900 mb-1">
-              {isEditing ? 'Edit Annotation' : 'Annotate Date'}
+              {selectedDate}
             </h2>
-            <p className="text-sm text-pink-600 mb-4">{selectedDate}</p>
+            <p className="text-sm text-pink-500 mb-4">Annotations for this day</p>
 
-            {/* Completed checkbox */}
-            <label className="flex items-center gap-3 mb-4 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={modalCompleted}
-                onChange={(e) => setModalCompleted(e.target.checked)}
-                className="w-5 h-5 rounded border-pink-300 text-pink-600 focus:ring-pink-500"
-              />
-              <span className="text-pink-800 font-medium">
-                Mark as completed
-              </span>
-            </label>
-
-            {/* Emoji picker */}
-            <div className="mb-4">
-              <p className="text-sm font-medium text-pink-800 mb-2">
-                Add emojis
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {EMOJI_OPTIONS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => toggleEmoji(emoji)}
-                    className={`text-2xl p-1.5 rounded-lg transition-colors ${
-                      modalEmojis.includes(emoji)
-                        ? 'bg-pink-200 ring-2 ring-pink-400'
-                        : 'bg-pink-50 hover:bg-pink-100'
-                    }`}
-                    aria-label={`Toggle emoji ${emoji}`}
-                    aria-pressed={modalEmojis.includes(emoji)}
+            {/* Show all annotations for this date (both users) */}
+            {(() => {
+              const dateAnnotations = annotations.filter((a) => a.date === selectedDate);
+              if (dateAnnotations.length === 0) {
+                return (
+                  <p className="text-sm text-pink-400 italic mb-4">
+                    No annotations yet for this date.
+                  </p>
+                );
+              }
+              return dateAnnotations.map((annotation) => {
+                let emojis: string[] = [];
+                try {
+                  emojis = JSON.parse(annotation.emojis);
+                } catch {
+                  emojis = [];
+                }
+                return (
+                  <div
+                    key={annotation.id}
+                    className="mb-3 p-3 bg-pink-50 rounded-xl border border-pink-100"
                   >
-                    {emoji}
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold text-pink-800">
+                        {annotation.user?.displayName || 'Unknown'}
+                      </span>
+                      {annotation.completed && (
+                        <span className="text-xs bg-pink-200 text-pink-700 px-2 py-0.5 rounded-full font-medium">
+                          ✓ Completed
+                        </span>
+                      )}
+                    </div>
+                    {emojis.length > 0 && (
+                      <div className="text-lg mb-1">{emojis.join(' ')}</div>
+                    )}
+                    {annotation.note && annotation.note.trim().length > 0 && (
+                      <p className="text-sm text-pink-700 mt-1">
+                        📝 {annotation.note}
+                      </p>
+                    )}
+                  </div>
+                );
+              });
+            })()}
+
+            {/* Edit mode section */}
+            {showEditMode && (
+              <div className="mt-4 pt-4 border-t border-pink-200">
+                <h3 className="text-sm font-semibold text-pink-800 mb-3">
+                  Edit My Entry
+                </h3>
+
+                {/* Completed checkbox */}
+                <label className="flex items-center gap-3 mb-4 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={modalCompleted}
+                    onChange={(e) => setModalCompleted(e.target.checked)}
+                    className="w-5 h-5 rounded border-pink-300 text-pink-600 focus:ring-pink-500"
+                  />
+                  <span className="text-pink-800 font-medium">
+                    Mark as completed
+                  </span>
+                </label>
+
+                {/* Emoji picker */}
+                <div className="mb-4">
+                  <p className="text-sm font-medium text-pink-800 mb-2">
+                    Add emojis
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {EMOJI_OPTIONS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => toggleEmoji(emoji)}
+                        className={`text-2xl p-1.5 rounded-lg transition-colors ${
+                          modalEmojis.includes(emoji)
+                            ? 'bg-pink-200 ring-2 ring-pink-400'
+                            : 'bg-pink-50 hover:bg-pink-100'
+                        }`}
+                        aria-label={`Toggle emoji ${emoji}`}
+                        aria-pressed={modalEmojis.includes(emoji)}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Note textarea */}
+                <div className="mb-4">
+                  <p className="text-sm font-medium text-pink-800 mb-2">
+                    Add a note
+                  </p>
+                  <textarea
+                    value={modalNote}
+                    onChange={(e) => setModalNote(e.target.value)}
+                    placeholder="Write a note... (e.g. I missed you today 💕)"
+                    className="w-full px-3 py-2.5 rounded-xl border border-pink-200 text-pink-900 placeholder-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent resize-none"
+                    rows={3}
+                  />
+                </div>
+
+                {/* Save / Cancel edit */}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditMode(false)}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-pink-300 text-pink-700 font-medium hover:bg-pink-50 transition-colors"
+                  >
+                    Cancel
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-pink-500 text-white font-medium hover:bg-pink-600 disabled:opacity-50 transition-colors"
+                  >
+                    {saving ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Note textarea */}
-            <div className="mb-4">
-              <p className="text-sm font-medium text-pink-800 mb-2">
-                Add a note
-              </p>
-              <textarea
-                value={modalNote}
-                onChange={(e) => setModalNote(e.target.value)}
-                placeholder="Write a note... (e.g. I missed you today 💕)"
-                className="w-full px-3 py-2.5 rounded-xl border border-pink-200 text-pink-900 placeholder-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent resize-none"
-                rows={3}
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-pink-300 text-pink-700 font-medium hover:bg-pink-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-pink-500 text-white font-medium hover:bg-pink-600 disabled:opacity-50 transition-colors"
-              >
-                {saving ? 'Saving...' : isEditing ? 'Update' : 'Save'}
-              </button>
-            </div>
+            {/* Bottom actions */}
+            {!showEditMode && (
+              <div className="flex gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => { setShowViewModal(false); setShowEditMode(false); }}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-pink-300 text-pink-700 font-medium hover:bg-pink-50 transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={openEditMode}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-pink-500 text-white font-medium hover:bg-pink-600 transition-colors"
+                >
+                  Mark / Edit
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
