@@ -227,6 +227,7 @@ export default function CalendarPage() {
         <FullCalendar
           plugins={[dayGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
+          timeZone="local"
           events={calendarEvents}
           dateClick={handleDateClick}
           datesSet={handleDatesSet}
@@ -237,7 +238,12 @@ export default function CalendarPage() {
           }}
           height="auto"
           dayCellClassNames={(arg) => {
-            const dateStr = arg.date.toISOString().split('T')[0];
+            // Use local date (not UTC) to match annotation.date which is YYYY-MM-DD local
+            const d = arg.date;
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
             const hasCompleted = annotations.some(
               (a) => a.date === dateStr && a.completed
             );
