@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Dancing_Script } from 'next/font/google';
 import './globals.css';
+import NotificationManager from '@/components/NotificationManager';
 
 const dancingScript = Dancing_Script({
   subsets: ['latin'],
@@ -26,7 +27,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`min-h-screen ${dancingScript.variable}`}>{children}</body>
+      <body className={`min-h-screen ${dancingScript.variable}`}>
+        <NotificationManager />
+        {children}
+      </body>
     </html>
   );
 }

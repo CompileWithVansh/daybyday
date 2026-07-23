@@ -83,3 +83,20 @@ model Album {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model TimetableSlot {
+  id         Int      @id @default(autoincrement())
+  day        String   // "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "Monday"
+  time       String   // "09:00 - 10:00"
+  period     String   // "1", "2", "6-9", etc.
+  courseCode String?
+  title      String?
+  faculty    String?
+  room       String?
+  notes      String?
+  details    String?
+  type       String?  // "Class", "Break", "Free"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+

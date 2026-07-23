@@ -66,3 +66,15 @@ export async function logout(): Promise<void> {
   cookieStore.delete('jwt');
   redirect('/login');
 }
+
+export async function getProfile() {
+  const { getCurrentUser } = await import('@/lib/auth');
+  const user = await getCurrentUser();
+  if (!user) return null;
+  return {
+    id: user.id,
+    email: user.email,
+    displayName: user.displayName,
+    username: user.username,
+  };
+}
