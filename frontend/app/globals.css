@@ -174,3 +174,49 @@
 .mood-selected {
   animation: glow-pulse 2s ease-in-out infinite;
 }
+
+/* Custom slider track layout for relationship countdown */
+.countdown-track-container {
+  --photo-width: 80px;
+}
+
+@media (min-width: 640px) {
+  .countdown-track-container {
+    --photo-width: 96px;
+  }
+}
+
+.countdown-photo-left {
+  position: absolute;
+  left: calc(1rem + var(--position, 0) * (50% - 1rem - var(--photo-width)));
+}
+
+.countdown-photo-right {
+  position: absolute;
+  right: calc(1rem + var(--position, 0) * (50% - 1rem - var(--photo-width)));
+}
+
+.countdown-line-completed-left {
+  position: absolute;
+  left: 1rem;
+  height: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(to right, #f472b6, #ec4899);
+  width: calc(var(--position, 0) * (50% - 1rem - var(--photo-width)));
+}
+
+.countdown-line-completed-right {
+  position: absolute;
+  right: 1rem;
+  height: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(to left, #f472b6, #ec4899);
+  width: calc(var(--position, 0) * (50% - 1rem - var(--photo-width)));
+}
+
+.countdown-line-remaining {
+  position: absolute;
+  left: calc(1rem + var(--photo-width) + var(--position, 0) * (50% - 1rem - var(--photo-width)));
+  right: calc(1rem + var(--photo-width) + var(--position, 0) * (50% - 1rem - var(--photo-width)));
+}
+

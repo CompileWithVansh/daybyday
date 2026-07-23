@@ -74,12 +74,12 @@ describe("calculateDaysRemaining", () => {
     expect(calculateDaysRemaining(meeting, current)).toBe(0);
   });
 
-  it("returns ceiling of partial day difference", () => {
+  it("ignores partial day difference and returns whole days difference", () => {
     // Meeting is at noon on the 20th, current is start of day on 15th
-    // diff = (noon 20th) - (midnight 15th) = 5.5 days → ceil = 6
+    // Since startOfDay is applied, it treats them as 20th and 15th midnight -> 5 days
     const meeting = new Date("2025-06-20T12:00:00");
     const current = new Date("2025-06-15T08:00:00");
-    expect(calculateDaysRemaining(meeting, current)).toBe(6);
+    expect(calculateDaysRemaining(meeting, current)).toBe(5);
   });
 });
 

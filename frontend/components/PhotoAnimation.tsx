@@ -44,13 +44,33 @@ export function PhotoAnimation({ position }: PhotoAnimationProps) {
   }
 
   return (
-    <div className="relative flex items-center justify-between py-6 px-4">
-      {/* Pakhi - Left */}
+    <motion.div
+      className="relative w-full h-32 flex items-center countdown-track-container"
+      animate={{ '--position': position } as any}
+      transition={{ type: 'spring', stiffness: 80, damping: 20 }}
+    >
+      {/* Path already completed - Left segment */}
+      <div className="countdown-line-completed-left" />
+
+      {/* Path already completed - Right segment */}
+      <div className="countdown-line-completed-right" />
+
+      {/* Remaining path (faint/dashed track in the gap) */}
+      <div className="countdown-line-remaining flex items-center justify-center">
+        <div className="w-full h-1 bg-pink-100 border-t border-dashed border-pink-300" />
+      </div>
+
+      {/* Target Pulsing Heart in the middle of the track */}
       <motion.div
-        className="relative z-10 flex flex-col items-center"
-        animate={{ x: position * 20 }}
-        transition={{ type: 'spring', stiffness: 80, damping: 20 }}
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-base z-20 pointer-events-none"
+        animate={{ scale: [1, 1.25, 1] }}
+        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
       >
+        ❤️
+      </motion.div>
+
+      {/* Pakhi - Left */}
+      <div className="countdown-photo-left z-10 flex flex-col items-center">
         <div className="w-20 h-24 sm:w-24 sm:h-28 rounded-2xl overflow-hidden border-2 border-pink-300 shadow-lg bg-pink-50">
           <Image
             src="/images/timelineleft.png"
@@ -58,45 +78,14 @@ export function PhotoAnimation({ position }: PhotoAnimationProps) {
             width={96}
             height={112}
             className="object-contain w-full h-full"
+            priority
           />
         </div>
-        <p className="text-center text-xs text-pink-600 font-medium mt-1">Pakhi</p>
-      </motion.div>
-
-      {/* Timeline line between them */}
-      <div className="absolute inset-0 flex items-center px-16 sm:px-20">
-        <div className="relative w-full h-1 bg-pink-100 rounded-full overflow-hidden">
-          {/* Filled portion showing how close they are */}
-          <motion.div
-            className="absolute left-0 top-0 h-full bg-gradient-to-r from-pink-400 to-pink-500 rounded-full"
-            animate={{ width: `${position * 100}%` }}
-            transition={{ type: 'spring', stiffness: 60, damping: 20 }}
-          />
-          {/* Pulsing heart in the middle */}
-          <motion.div
-            className="absolute top-1/2 -translate-y-1/2 text-sm"
-            animate={{
-              left: `${Math.min(90, position * 100)}%`,
-              scale: [1, 1.2, 1],
-            }}
-            transition={{
-              left: { type: 'spring', stiffness: 60 },
-              scale: { repeat: Infinity, duration: 1.5 },
-            }}
-          >
-            ❤️
-          </motion.div>
-        </div>
+        <p className="text-center text-[10px] sm:text-xs text-pink-600 font-semibold mt-1">Pakhi</p>
       </div>
 
-      {/* Distance indicator removed - visual gap speaks for itself */}
-
       {/* Vansh - Right */}
-      <motion.div
-        className="relative z-10 flex flex-col items-center"
-        animate={{ x: -(position * 20) }}
-        transition={{ type: 'spring', stiffness: 80, damping: 20 }}
-      >
+      <div className="countdown-photo-right z-10 flex flex-col items-center">
         <div className="w-20 h-24 sm:w-24 sm:h-28 rounded-2xl overflow-hidden border-2 border-pink-400 shadow-lg bg-pink-50">
           <Image
             src="/images/timelineright.png"
@@ -104,10 +93,11 @@ export function PhotoAnimation({ position }: PhotoAnimationProps) {
             width={96}
             height={112}
             className="object-contain w-full h-full"
+            priority
           />
         </div>
-        <p className="text-center text-xs text-pink-600 font-medium mt-1">Vansh</p>
-      </motion.div>
-    </div>
+        <p className="text-center text-[10px] sm:text-xs text-pink-600 font-semibold mt-1">Vansh</p>
+      </div>
+    </motion.div>
   );
 }
