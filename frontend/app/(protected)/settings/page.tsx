@@ -6,6 +6,7 @@ import { PinkCard } from '@/components/PinkCard';
 import { PageTransition } from '@/components/PageTransition';
 import { getMeetingDate, setMeetingDate } from '@/actions/meeting.actions';
 import { logout } from '@/actions/auth.actions';
+import { usePwaInstall } from '@/lib/usePwaInstall';
 
 export default function SettingsPage() {
   const [date, setDate] = useState('');
@@ -121,6 +122,18 @@ export default function SettingsPage() {
         )}
       </PinkCard>
 
+      {/* PWA & Offline App Section */}
+      <PinkCard>
+        <h2 className="text-lg font-semibold text-pink-800 mb-2 flex items-center gap-2">
+          <span>📲</span> Mobile & Desktop App (PWA)
+        </h2>
+        <p className="text-xs text-pink-600 mb-4 leading-relaxed">
+          Install DayByDay directly to your phone or desktop home screen for instant access and full offline support.
+        </p>
+
+        <PwaSettingsSection />
+      </PinkCard>
+
       {/* Logout */}
       <PinkCard>
         <h2 className="text-lg font-semibold text-pink-800 mb-4">Account</h2>
@@ -137,3 +150,65 @@ export default function SettingsPage() {
     </PageTransition>
   );
 }
+
+function PwaSettingsSection() {
+  const { isInstalled, isStandalone, canPrompt, isIOS, isOnline, promptInstall } = usePwaInstall();
+  const [showIosTip, setShowIosTip] = useState(false);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3 p-3 bg-pink-50/80 rounded-xl border border-pink-100">
+        <img
+          src="/icons/icon-192.png"
+          alt="DayByDay App Icon"
+          className="w-12 h-12 rounded-xl shadow-sm border border-pink-200 object-cover flex-shrink-0"
+        />
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+            <span className="text-xs font-semibold text-pink-900">
+              {isOnline ? 'Online & Ready' : 'Offline Mode Active'}
+            </span>
+          </div>
+          <p className="text-[11px] text-pink-600 mt-0.5">
+            Progressive Web App • Service Worker Active
+          </p>
+        </div>
+      </div>
+
+      {isStandalone || isInstalled ? (
+        <div className="p-3 bg-green-50 rounded-xl border border-green-200 flex items-center gap-2 text-xs font-semibold text-green-800">
+          <span>✨</span> DayByDay App is installed on this device!
+        </div>
+      ) : canPrompt ? (
+        <PinkButton onClick={promptInstall} className="w-full text-xs py-2.5">
+          Install DayByDay App
+        </PinkButton>
+      ) : isIOS ? (
+        <div>
+          <button
+            onClick={() => setShowIosTip(!showIosTip)}
+            className="w-full py-2.5 px-4 rounded-xl border border-pink-300 bg-pink-50 text-pink-700 text-xs font-semibold hover:bg-pink-100 transition-colors flex items-center justify-between"
+          >
+            <span>iPhone / iPad Installation Guide</span>
+            <span>{showIosTip ? '▲' : '▼'}</span>
+          </button>
+          {showIosTip && (
+            <div className="mt-2.5 p-3.5 bg-pink-50/80 rounded-xl border border-pink-200 text-xs text-pink-800 space-y-2">
+              <p className="font-semibold">To install on iOS Safari:</p>
+              <ol className="list-decimal list-inside space-y-1 text-[11px] text-pink-700">
+                <li>Tap the <strong>Share icon</strong> (square with up arrow) in Safari.</li>
+                <li>Scroll down and select <strong>Add to Home Screen</strong>.</li>
+              </ol>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="p-3 bg-pink-50 rounded-xl text-xs text-pink-700">
+          Open this website in Chrome or Safari on your mobile device to install the app.
+        </div>
+      )}
+    </div>
+  );
+}
+
