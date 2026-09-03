@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daybyday-pwa-v1';
+const CACHE_NAME = 'daybyday-pwa-v2';
 const PRECACHE_ASSETS = [
   '/',
   '/home',
