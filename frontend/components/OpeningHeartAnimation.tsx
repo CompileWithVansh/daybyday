@@ -2,14 +2,13 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 
-const MAX_DEFAULT_PLAYS = 3;
-
 export default function OpeningHeartAnimation() {
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [isDrawingComplete, setIsDrawingComplete] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const lastDrawTimeRef = useRef<number>(0);
   const isMountedRef = useRef(true);
 
   const dismissAnimation = useCallback(() => {
@@ -19,17 +18,11 @@ export default function OpeningHeartAnimation() {
         setIsVisible(false);
         setIsFadingOut(false);
       }
-    }, 600);
+    }, 500);
   }, []);
 
-  const shouldPlayOnLaunch = useCallback(() => {
-    if (typeof window === 'undefined') return false;
-
-    // Check if already shown in this browser session
-    const sessionShown = sessionStorage.getItem('daybyday_heart_session_shown');
-    if (sessionShown === 'true') {
-      return false;
-    }
+  const checkShouldPlay = useCallback(() => {
+    if (typeof window === 'undefined') return true;
 
     const mode = localStorage.getItem('daybyday_heart_intro_mode') || 'first_3';
     if (mode === 'never') {
@@ -40,10 +33,10 @@ export default function OpeningHeartAnimation() {
       return true;
     }
 
-    // Default: 'first_3'
+    // 'first_3': allow first 3 plays
     const countStr = localStorage.getItem('daybyday_heart_intro_count') || '0';
     const count = parseInt(countStr, 10);
-    return count < MAX_DEFAULT_PLAYS;
+    return count < 3;
   }, []);
 
   const startAnimation = useCallback((isReplay = false) => {
@@ -51,25 +44,23 @@ export default function OpeningHeartAnimation() {
     setIsFadingOut(false);
     setIsDrawingComplete(false);
 
-    // Record session and increment play count if not replay
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('daybyday_heart_session_shown', 'true');
-      if (!isReplay) {
-        const count = parseInt(localStorage.getItem('daybyday_heart_intro_count') || '0', 10);
-        localStorage.setItem('daybyday_heart_intro_count', (count + 1).toString());
-      }
+    if (typeof window !== 'undefined' && !isReplay) {
+      const count = parseInt(localStorage.getItem('daybyday_heart_intro_count') || '0', 10);
+      localStorage.setItem('daybyday_heart_intro_count', (count + 1).toString());
     }
   }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
 
-    // Check if animation should automatically run
-    if (shouldPlayOnLaunch()) {
+    // Check if animation should run on this launch
+    if (!checkShouldPlay()) {
+      setIsVisible(false);
+    } else {
       startAnimation(false);
     }
 
-    // Global event listener to trigger replay from Settings or dev tools
+    // Global event listener to trigger replay from Settings
     const handleReplay = () => {
       startAnimation(true);
     };
@@ -83,9 +74,9 @@ export default function OpeningHeartAnimation() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [shouldPlayOnLaunch, startAnimation]);
+  }, [checkShouldPlay, startAnimation]);
 
-  // Canvas drawing effect when isVisible becomes true
+  // Canvas drawing effect
   useEffect(() => {
     if (!isVisible) return;
 
@@ -95,7 +86,7 @@ export default function OpeningHeartAnimation() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // High DPI scaling
+    // High DPI scaling for crisp text
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -107,28 +98,23 @@ export default function OpeningHeartAnimation() {
 
     ctx.scale(dpr, dpr);
 
-    // Clear canvas to deep black
+    // Deep black background
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, width, height);
 
-    // Heart parametric coordinates precomputation
-    // Matches screenshot formula:
-    // x = 16 * sin(t)^3
-    // y = 13*cos(t) - 5*cos(2t) - 2*cos(3t) - cos(4t)
-    const pointsPerLayer = 120;
-    const scales = [11, 12, 13, 14, 15, 16];
+    // Exactly TWO concentric circles / loops as requested:
+    // Scale 15.5 for outer loop, 13.0 for inner loop
+    const scales = [15.5, 13.0];
+    const pointsPerLayer = 64; // 64 points per circle = 128 total words
     const totalPoints = scales.length * pointsPerLayer;
 
-    // Center coordinates
+    // Center coordinates: "make it low" -> shifted lower down on the screen
     const cx = width / 2;
-    // Offset slightly upward to make room for bottom text and heart balance
-    const cy = height / 2 - 25;
+    const cy = height * 0.54; // comfortably low on the screen
 
-    // Base unit multiplier to fit on screen responsively
-    // Max width of raw heart equation is 2 * 16 = 32 units.
-    // Target max pixel width = min(width * 0.85, 420)
-    const targetHeartWidth = Math.min(width * 0.85, 420);
-    const baseScale = targetHeartWidth / (32 * 16);
+    // Base unit multiplier to fit on screen
+    const targetHeartWidth = Math.min(width * 0.82, 380);
+    const baseScale = targetHeartWidth / (32 * 15.5);
 
     const allPoints: Array<{ x: number; y: number; text: string }> = [];
 
@@ -152,26 +138,39 @@ export default function OpeningHeartAnimation() {
     }
 
     let currentIndex = 0;
-    const pointsPerFrame = 4; // ~180 frames = 3 seconds at 60fps
+    // Pacing: Draw 1 word every ~38ms (~26 words per second)
+    // Total 128 words takes ~4.8 seconds: leisurely, romantic, and very easy to read!
+    const MS_PER_WORD = 38;
+    lastDrawTimeRef.current = performance.now();
 
-    ctx.font = 'bold 8.5px Arial, sans-serif';
+    ctx.font = 'bold 11px Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = '#ff69b4';
-    ctx.shadowBlur = 4;
 
-    const render = () => {
+    const render = (currentTime: number) => {
       if (!isMountedRef.current) return;
 
-      const endIndex = Math.min(currentIndex + pointsPerFrame, totalPoints);
+      const elapsed = currentTime - lastDrawTimeRef.current;
 
-      for (let i = currentIndex; i < endIndex; i++) {
-        const pt = allPoints[i];
-        ctx.fillStyle = '#ffb6c1';
-        ctx.fillText(pt.text, pt.x, pt.y);
+      if (elapsed >= MS_PER_WORD) {
+        // Calculate how many words to advance
+        const wordsToAdvance = Math.max(1, Math.floor(elapsed / MS_PER_WORD));
+        lastDrawTimeRef.current = currentTime;
+
+        const endIndex = Math.min(currentIndex + wordsToAdvance, totalPoints);
+
+        for (let i = currentIndex; i < endIndex; i++) {
+          const pt = allPoints[i];
+
+          // Soft pink romantic glow
+          ctx.shadowColor = 'rgba(255, 105, 180, 0.7)';
+          ctx.shadowBlur = 5;
+          ctx.fillStyle = '#ffb6c1';
+          ctx.fillText(pt.text, pt.x, pt.y);
+        }
+
+        currentIndex = endIndex;
       }
-
-      currentIndex = endIndex;
 
       if (currentIndex < totalPoints) {
         animationFrameRef.current = requestAnimationFrame(render);
@@ -179,12 +178,12 @@ export default function OpeningHeartAnimation() {
         // Complete!
         setIsDrawingComplete(true);
 
-        // Auto dismiss after 2.2 seconds post-completion
+        // Auto dismiss after 2.5 seconds post-completion
         const autoDismissTimer = setTimeout(() => {
           if (isMountedRef.current) {
             dismissAnimation();
           }
-        }, 2200);
+        }, 2500);
 
         return () => clearTimeout(autoDismissTimer);
       }
@@ -204,7 +203,7 @@ export default function OpeningHeartAnimation() {
   return (
     <div
       onClick={dismissAnimation}
-      className={`fixed inset-0 z-[99999] bg-black flex flex-col items-center justify-between transition-opacity duration-600 cursor-pointer select-none overflow-hidden ${
+      className={`fixed inset-0 z-[99999] bg-black flex flex-col items-center justify-between transition-opacity duration-500 cursor-pointer select-none overflow-hidden ${
         isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
       style={{ touchAction: 'none' }}
@@ -213,7 +212,7 @@ export default function OpeningHeartAnimation() {
     >
       {/* Top Header Bar with Skip Button */}
       <div className="w-full max-w-md flex items-center justify-between p-4 z-10">
-        <span className="text-[11px] font-medium tracking-wider uppercase text-pink-300/70">
+        <span className="text-xs font-medium tracking-wider uppercase text-pink-300/80 font-sans">
           DayByDay 💕
         </span>
         <button
@@ -222,24 +221,24 @@ export default function OpeningHeartAnimation() {
             e.stopPropagation();
             dismissAnimation();
           }}
-          className="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-pink-200 text-xs font-semibold backdrop-blur-md border border-white/15 transition-all shadow-sm"
+          className="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-pink-200 text-xs font-semibold backdrop-blur-md border border-white/20 transition-all shadow-sm"
           aria-label="Skip heart animation"
         >
           Skip ✕
         </button>
       </div>
 
-      {/* Main Drawing Canvas */}
+      {/* Main Drawing Canvas (placed lower in viewport) */}
       <div className="relative flex-1 w-full flex items-center justify-center">
         <canvas
           ref={canvasRef}
           className={`w-full h-full block ${isDrawingComplete ? 'animate-heart-pulse' : ''}`}
         />
 
-        {/* Center glowing text after completion */}
+        {/* Center glowing heart emoji once completed */}
         {isDrawingComplete && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none animate-fade-in-up">
-            <span className="text-3xl text-pink-400 drop-shadow-[0_0_12px_rgba(255,105,180,0.8)] animate-pulse">
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none animate-fade-in-up" style={{ transform: 'translateY(40px)' }}>
+            <span className="text-3xl text-pink-400 drop-shadow-[0_0_15px_rgba(255,105,180,0.9)] animate-pulse">
               💕
             </span>
           </div>
@@ -247,11 +246,11 @@ export default function OpeningHeartAnimation() {
       </div>
 
       {/* Bottom Subtitle and Dismiss Prompt */}
-      <div className="w-full max-w-md pb-8 text-center space-y-1 z-10 px-4">
-        <p className="font-cursive text-2xl sm:text-3xl text-pink-300 drop-shadow-[0_0_8px_rgba(255,182,193,0.5)]">
+      <div className="w-full max-w-md pb-8 text-center space-y-1.5 z-10 px-4">
+        <p className="font-cursive text-3xl text-pink-300 drop-shadow-[0_0_10px_rgba(255,182,193,0.6)]">
           DayByDay
         </p>
-        <p className="text-[11px] tracking-widest text-pink-200/60 uppercase font-sans">
+        <p className="text-xs tracking-widest text-pink-200/70 uppercase font-sans">
           {isDrawingComplete ? 'Tap anywhere to enter ✨' : 'Drawing love note...'}
         </p>
       </div>
