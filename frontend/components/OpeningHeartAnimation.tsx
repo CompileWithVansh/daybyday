@@ -2,11 +2,21 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 
+const LOVE_QUOTES = [
+  { quote: 'You are my today and all of my tomorrows.', author: 'Leo Christopher' },
+  { quote: 'Every moment with you is my favorite memory.', author: 'Forever' },
+  { quote: 'In a sea of people, my eyes will always search for you.', author: 'Always' },
+  { quote: 'Together is my favorite place to be.', author: 'With Love' },
+  { quote: 'Distance means so little when someone means so much.', author: 'Us' },
+];
+
 export default function OpeningHeartAnimation() {
   const [isVisible, setIsVisible] = useState(true);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [isDrawingComplete, setIsDrawingComplete] = useState(false);
+  const [quoteIndex, setQuoteIndex] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const lastDrawTimeRef = useRef<number>(0);
   const isMountedRef = useRef(true);
@@ -18,7 +28,7 @@ export default function OpeningHeartAnimation() {
         setIsVisible(false);
         setIsFadingOut(false);
       }
-    }, 500);
+    }, 450);
   }, []);
 
   const checkShouldPlay = useCallback(() => {
@@ -43,6 +53,7 @@ export default function OpeningHeartAnimation() {
     setIsVisible(true);
     setIsFadingOut(false);
     setIsDrawingComplete(false);
+    setQuoteIndex(Math.floor(Math.random() * LOVE_QUOTES.length));
 
     if (typeof window !== 'undefined' && !isReplay) {
       const count = parseInt(localStorage.getItem('daybyday_heart_intro_count') || '0', 10);
@@ -53,14 +64,12 @@ export default function OpeningHeartAnimation() {
   useEffect(() => {
     isMountedRef.current = true;
 
-    // Check if animation should run on this launch
     if (!checkShouldPlay()) {
       setIsVisible(false);
     } else {
       startAnimation(false);
     }
 
-    // Global event listener to trigger replay from Settings
     const handleReplay = () => {
       startAnimation(true);
     };
@@ -86,11 +95,12 @@ export default function OpeningHeartAnimation() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // High DPI scaling for crisp text
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    // Measure parent container for accurate centering
+    const container = canvas.parentElement;
+    const width = container ? container.clientWidth : window.innerWidth;
+    const height = container ? container.clientHeight : Math.max(320, window.innerHeight * 0.55);
 
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = width * dpr;
     canvas.height = height * dpr;
     canvas.style.width = `${width}px`;
@@ -98,22 +108,22 @@ export default function OpeningHeartAnimation() {
 
     ctx.scale(dpr, dpr);
 
-    // Deep black background
-    ctx.fillStyle = '#000000';
+    // Clean white canvas background
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
 
-    // Exactly TWO concentric circles / loops as requested:
+    // Exactly TWO concentric circles / loops:
     // Scale 15.5 for outer loop, 13.0 for inner loop
     const scales = [15.5, 13.0];
     const pointsPerLayer = 64; // 64 points per circle = 128 total words
     const totalPoints = scales.length * pointsPerLayer;
 
-    // Center coordinates: "make it low" -> shifted lower down on the screen
+    // Center coordinates: perfectly centered inside canvas container
     const cx = width / 2;
-    const cy = height * 0.54; // comfortably low on the screen
+    const cy = height / 2 + 10;
 
-    // Base unit multiplier to fit on screen
-    const targetHeartWidth = Math.min(width * 0.82, 380);
+    // Target width: adapt to viewport
+    const targetHeartWidth = Math.min(width * 0.84, 370);
     const baseScale = targetHeartWidth / (32 * 15.5);
 
     const allPoints: Array<{ x: number; y: number; text: string }> = [];
@@ -139,7 +149,6 @@ export default function OpeningHeartAnimation() {
 
     let currentIndex = 0;
     // Pacing: Draw 1 word every ~38ms (~26 words per second)
-    // Total 128 words takes ~4.8 seconds: leisurely, romantic, and very easy to read!
     const MS_PER_WORD = 38;
     lastDrawTimeRef.current = performance.now();
 
@@ -153,7 +162,6 @@ export default function OpeningHeartAnimation() {
       const elapsed = currentTime - lastDrawTimeRef.current;
 
       if (elapsed >= MS_PER_WORD) {
-        // Calculate how many words to advance
         const wordsToAdvance = Math.max(1, Math.floor(elapsed / MS_PER_WORD));
         lastDrawTimeRef.current = currentTime;
 
@@ -162,10 +170,10 @@ export default function OpeningHeartAnimation() {
         for (let i = currentIndex; i < endIndex; i++) {
           const pt = allPoints[i];
 
-          // Soft pink romantic glow
-          ctx.shadowColor = 'rgba(255, 105, 180, 0.7)';
-          ctx.shadowBlur = 5;
-          ctx.fillStyle = '#ffb6c1';
+          // Vibrant rose-red text with gentle pink blur for maximum readability on white
+          ctx.shadowColor = 'rgba(225, 29, 72, 0.35)';
+          ctx.shadowBlur = 4;
+          ctx.fillStyle = '#e11d48';
           ctx.fillText(pt.text, pt.x, pt.y);
         }
 
@@ -178,12 +186,12 @@ export default function OpeningHeartAnimation() {
         // Complete!
         setIsDrawingComplete(true);
 
-        // Auto dismiss after 2.5 seconds post-completion
+        // Auto dismiss after 2.8 seconds post-completion
         const autoDismissTimer = setTimeout(() => {
           if (isMountedRef.current) {
             dismissAnimation();
           }
-        }, 2500);
+        }, 2800);
 
         return () => clearTimeout(autoDismissTimer);
       }
@@ -200,10 +208,13 @@ export default function OpeningHeartAnimation() {
 
   if (!isVisible) return null;
 
+  const activeQuote = LOVE_QUOTES[quoteIndex] || LOVE_QUOTES[0];
+
   return (
     <div
+      ref={containerRef}
       onClick={dismissAnimation}
-      className={`fixed inset-0 z-[99999] bg-black flex flex-col items-center justify-between transition-opacity duration-500 cursor-pointer select-none overflow-hidden ${
+      className={`fixed inset-0 z-[99999] bg-gradient-to-b from-rose-50/70 via-white to-pink-50/50 flex flex-col items-center justify-between transition-opacity duration-500 cursor-pointer select-none overflow-hidden ${
         isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
       style={{ touchAction: 'none' }}
@@ -211,9 +222,9 @@ export default function OpeningHeartAnimation() {
       aria-label="Welcome Heart Animation"
     >
       {/* Top Header Bar with Skip Button */}
-      <div className="w-full max-w-md flex items-center justify-between p-4 z-10">
-        <span className="text-xs font-medium tracking-wider uppercase text-pink-300/80 font-sans">
-          DayByDay 💕
+      <div className="w-full max-w-md flex items-center justify-between p-4 z-20">
+        <span className="text-xs font-bold tracking-wider uppercase text-pink-600 font-sans flex items-center gap-1.5">
+          <span>🌸</span> DayByDay 💕
         </span>
         <button
           type="button"
@@ -221,24 +232,37 @@ export default function OpeningHeartAnimation() {
             e.stopPropagation();
             dismissAnimation();
           }}
-          className="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-pink-200 text-xs font-semibold backdrop-blur-md border border-white/20 transition-all shadow-sm"
+          className="px-4 py-1.5 rounded-full bg-pink-50 hover:bg-pink-100 active:scale-95 text-pink-700 text-xs font-semibold border border-pink-200 transition-all shadow-sm flex items-center gap-1"
           aria-label="Skip heart animation"
         >
           Skip ✕
         </button>
       </div>
 
-      {/* Main Drawing Canvas (placed lower in viewport) */}
-      <div className="relative flex-1 w-full flex items-center justify-center">
+      {/* Upper Section: Welcome Back & Romantic Quote */}
+      <div className="w-full max-w-md px-6 text-center space-y-1.5 z-10 pt-1 pb-1 animate-fade-in-up">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-100/80 text-pink-700 text-[11px] font-semibold tracking-wide">
+          <span>✨</span> Welcome Back
+        </div>
+        <h2 className="font-cursive text-2xl sm:text-3xl text-pink-800 leading-tight">
+          Every beat of my heart is for you
+        </h2>
+        <p className="text-xs text-pink-600/90 italic max-w-xs mx-auto leading-relaxed">
+          &ldquo;{activeQuote.quote}&rdquo;
+        </p>
+      </div>
+
+      {/* Main Drawing Canvas (Centrally balanced in remaining space) */}
+      <div className="relative flex-1 w-full max-w-md flex items-center justify-center min-h-[300px] overflow-hidden">
         <canvas
           ref={canvasRef}
-          className={`w-full h-full block ${isDrawingComplete ? 'animate-heart-pulse' : ''}`}
+          className={`block ${isDrawingComplete ? 'animate-heart-pulse' : ''}`}
         />
 
         {/* Center glowing heart emoji once completed */}
         {isDrawingComplete && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none animate-fade-in-up" style={{ transform: 'translateY(40px)' }}>
-            <span className="text-3xl text-pink-400 drop-shadow-[0_0_15px_rgba(255,105,180,0.9)] animate-pulse">
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none animate-fade-in-up">
+            <span className="text-3xl drop-shadow-[0_0_12px_rgba(244,63,94,0.6)] animate-pulse">
               💕
             </span>
           </div>
@@ -246,12 +270,12 @@ export default function OpeningHeartAnimation() {
       </div>
 
       {/* Bottom Subtitle and Dismiss Prompt */}
-      <div className="w-full max-w-md pb-8 text-center space-y-1.5 z-10 px-4">
-        <p className="font-cursive text-3xl text-pink-300 drop-shadow-[0_0_10px_rgba(255,182,193,0.6)]">
-          DayByDay
+      <div className="w-full max-w-md pb-7 text-center space-y-1 z-10 px-4">
+        <p className="font-cursive text-2xl text-pink-600 drop-shadow-sm">
+          DayByDay 💕
         </p>
-        <p className="text-xs tracking-widest text-pink-200/70 uppercase font-sans">
-          {isDrawingComplete ? 'Tap anywhere to enter ✨' : 'Drawing love note...'}
+        <p className="text-[11px] tracking-widest text-pink-400 font-sans uppercase">
+          {isDrawingComplete ? 'Tap anywhere to enter ✨' : 'Writing love note...'}
         </p>
       </div>
     </div>
