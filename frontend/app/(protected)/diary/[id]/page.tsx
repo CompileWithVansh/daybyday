@@ -4,16 +4,18 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createEntry, updateEntry, getEntryById, uploadMedia } from '@/actions/diary.actions';
+import { getCachedEntries, getCachedPartnerEntries, saveOfflineEntry } from '@/lib/offlineStorage';
 import { formatDateISO } from '@/lib/utils';
 
 interface ExistingEntry {
-  id: number;
+  id: number | string;
   title: string;
   content: string;
   mood: string;
   weather: string;
   images: Array<{ id: number; url: string; name: string }>;
   voiceNote: { id: number; url: string; name: string } | null;
+  isOffline?: boolean;
 }
 
 const moods = [
@@ -54,6 +56,8 @@ export default function DiaryEntryPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('Saved with love! 💕');
+  const [isOffline, setIsOffline] = useState(false);
 
   // Image upload state
   const [uploadedImages, setUploadedImages] = useState<Array<{ id: number; url: string; name: string }>>([]);
@@ -68,39 +72,93 @@ export default function DiaryEntryPage() {
   const audioChunksRef = useRef<Blob[]>([]);
   const voiceInputRef = useRef<HTMLInputElement>(null);
 
-  // Load existing entry by ID
+  // Monitor online/offline status
+  useEffect(() => {
+    setIsOffline(typeof window !== 'undefined' && !navigator.onLine);
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Load existing entry by ID (handles both offline and server entries)
   useEffect(() => {
     if (isNew) return;
 
     async function loadEntry() {
-      const entryId = parseInt(idParam, 10);
-      if (isNaN(entryId)) {
-        setError('Invalid entry ID');
+      // 1. Check local cached entries first (handles offline IDs and cached server IDs)
+      const cachedMine = getCachedEntries();
+      const cachedPartner = getCachedPartnerEntries();
+      const localMatch = [...cachedMine, ...cachedPartner].find(
+        (e) => String(e.id) === String(idParam)
+      );
+
+      if (localMatch) {
+        setExistingEntry({
+          id: localMatch.id,
+          title: localMatch.title || '',
+          content: localMatch.content || '',
+          mood: localMatch.mood || '',
+          weather: localMatch.weather || '',
+          images: localMatch.images || [],
+          voiceNote: localMatch.voiceNote || null,
+          isOffline: localMatch.isOffline,
+        });
+        setTitle(localMatch.title || '');
+        setContent(localMatch.content || '');
+        setMood(localMatch.mood || '');
+        setWeather(localMatch.weather || '');
+        setDate(localMatch.date);
+        setUploadedImages(localMatch.images || []);
+        setVoiceNote(localMatch.voiceNote || null);
         setLoading(false);
         return;
       }
 
-      const result = await getEntryById(entryId);
-      if (result.success && result.data) {
-        const entry = result.data;
-        setExistingEntry({
-          id: entry.id,
-          title: entry.title,
-          content: entry.content,
-          mood: entry.mood,
-          weather: entry.weather,
-          images: entry.images || [],
-          voiceNote: entry.voiceNote || null,
-        });
-        setTitle(entry.title || '');
-        setContent(entry.content || '');
-        setMood(entry.mood || '');
-        setWeather(entry.weather || '');
-        setDate(entry.date);
-        setUploadedImages(entry.images || []);
-        setVoiceNote(entry.voiceNote || null);
-      } else {
-        setError(result.error || 'Entry not found');
+      const entryId = parseInt(idParam, 10);
+      if (isNaN(entryId)) {
+        setError('Entry not found');
+        setLoading(false);
+        return;
+      }
+
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        setError('Entry not available offline');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const result = await getEntryById(entryId);
+        if (result.success && result.data) {
+          const entry = result.data;
+          setExistingEntry({
+            id: entry.id,
+            title: entry.title,
+            content: entry.content,
+            mood: entry.mood,
+            weather: entry.weather,
+            images: entry.images || [],
+            voiceNote: entry.voiceNote || null,
+          });
+          setTitle(entry.title || '');
+          setContent(entry.content || '');
+          setMood(entry.mood || '');
+          setWeather(entry.weather || '');
+          setDate(entry.date);
+          setUploadedImages(entry.images || []);
+          setVoiceNote(entry.voiceNote || null);
+        } else {
+          setError(result.error || 'Entry not found');
+        }
+      } catch {
+        setError('Could not load entry');
       }
       setLoading(false);
     }
@@ -111,6 +169,11 @@ export default function DiaryEntryPage() {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      setError('Photo upload requires an active internet connection.');
+      return;
+    }
 
     setUploadingImage(true);
     setError(null);
@@ -134,6 +197,11 @@ export default function DiaryEntryPage() {
 
   // Voice recording
   const startRecording = async () => {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      setError('Voice note recording requires an active connection for upload.');
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -180,6 +248,11 @@ export default function DiaryEntryPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      setError('Voice upload requires internet connectivity.');
+      return;
+    }
+
     setUploadingVoice(true);
     setError(null);
 
@@ -197,30 +270,123 @@ export default function DiaryEntryPage() {
     if (voiceInputRef.current) voiceInputRef.current.value = '';
   };
 
-  // Save entry
+  // Save entry (with offline support & automatic offline fallback)
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     setSuccess(false);
 
-    try {
-      if (existingEntry) {
-        const result = await updateEntry(existingEntry.id, {
+    const currentlyOffline = typeof window !== 'undefined' && !navigator.onLine;
+
+    // 1. Offline branch: save directly to offline storage
+    if (currentlyOffline) {
+      const saved = saveOfflineEntry(
+        {
+          date,
           title,
           content,
           mood,
           weather,
-          images: uploadedImages.map((img) => img.id),
-          voiceNote: voiceNote?.id || null,
-        });
+          images: uploadedImages,
+          voiceNote,
+        },
+        existingEntry ? existingEntry.id : undefined
+      );
 
-        if (!result.success) {
-          setError(result.error || 'Failed to update entry');
+      setExistingEntry({
+        id: saved.id,
+        title: saved.title,
+        content: saved.content,
+        mood: saved.mood,
+        weather: saved.weather,
+        images: saved.images || [],
+        voiceNote: saved.voiceNote || null,
+        isOffline: true,
+      });
+
+      if (!existingEntry) {
+        window.history.replaceState(null, '', `/diary/${saved.id}`);
+      }
+
+      setSuccessMsg('Saved offline! 💕 Will automatically sync when online.');
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3500);
+      setSaving(false);
+      return;
+    }
+
+    // 2. Online branch: attempt server save with automatic offline fallback
+    try {
+      if (existingEntry) {
+        const isOfflineId = typeof existingEntry.id === 'string' && existingEntry.id.startsWith('offline_');
+
+        if (isOfflineId) {
+          // New offline entry now being saved while online
+          const result = await createEntry({
+            date,
+            title,
+            content,
+            mood,
+            weather,
+            user: 0,
+          });
+
+          if (result.success && result.data) {
+            setExistingEntry({
+              id: result.data.id,
+              title: result.data.title,
+              content: result.data.content,
+              mood: result.data.mood,
+              weather: result.data.weather,
+              images: result.data.images || [],
+              voiceNote: result.data.voiceNote || null,
+              isOffline: false,
+            });
+            window.history.replaceState(null, '', `/diary/${result.data.id}`);
+            saveOfflineEntry(
+              { date, title, content, mood, weather, images: uploadedImages, voiceNote },
+              result.data.id
+            );
+            setSuccessMsg('Saved with love! 💕');
+            setSuccess(true);
+            setTimeout(() => setSuccess(false), 3000);
+          } else {
+            // Save offline
+            saveOfflineEntry(
+              { date, title, content, mood, weather, images: uploadedImages, voiceNote },
+              existingEntry.id
+            );
+            setSuccessMsg('Saved offline! Will sync automatically. 💕');
+            setSuccess(true);
+            setTimeout(() => setSuccess(false), 3000);
+          }
         } else {
-          setSuccess(true);
-          setTimeout(() => setSuccess(false), 3000);
+          // Existing server entry
+          const result = await updateEntry(Number(existingEntry.id), {
+            title,
+            content,
+            mood,
+            weather,
+            images: uploadedImages.map((img) => img.id),
+            voiceNote: voiceNote?.id || null,
+          });
+
+          if (!result.success) {
+            saveOfflineEntry(
+              { date, title, content, mood, weather, images: uploadedImages, voiceNote },
+              existingEntry.id
+            );
+            setSuccessMsg('Saved offline! Will sync when connected. 💕');
+            setSuccess(true);
+            setTimeout(() => setSuccess(false), 3000);
+          } else {
+            setSuccessMsg('Saved with love! 💕');
+            setSuccess(true);
+            setTimeout(() => setSuccess(false), 3000);
+          }
         }
       } else {
+        // Brand new entry
         const result = await createEntry({
           date,
           title,
@@ -231,8 +397,32 @@ export default function DiaryEntryPage() {
         });
 
         if (!result.success) {
-          setError(result.error || 'Failed to create entry');
+          // Network failure: save offline
+          const saved = saveOfflineEntry({
+            date,
+            title,
+            content,
+            mood,
+            weather,
+            images: uploadedImages,
+            voiceNote,
+          });
+          setExistingEntry({
+            id: saved.id,
+            title: saved.title,
+            content: saved.content,
+            mood: saved.mood,
+            weather: saved.weather,
+            images: saved.images || [],
+            voiceNote: saved.voiceNote || null,
+            isOffline: true,
+          });
+          window.history.replaceState(null, '', `/diary/${saved.id}`);
+          setSuccessMsg('Saved offline! Will sync automatically. 💕');
+          setSuccess(true);
+          setTimeout(() => setSuccess(false), 3500);
         } else {
+          setSuccessMsg('Saved with love! 💕');
           setSuccess(true);
           if (result.data) {
             setExistingEntry({
@@ -243,15 +433,32 @@ export default function DiaryEntryPage() {
               weather: result.data.weather,
               images: result.data.images || [],
               voiceNote: result.data.voiceNote || null,
+              isOffline: false,
             });
-            // Update the URL to the new entry's ID without a full reload
             window.history.replaceState(null, '', `/diary/${result.data.id}`);
           }
           setTimeout(() => setSuccess(false), 3000);
         }
       }
     } catch {
-      setError('An unexpected error occurred');
+      // Uncaught exception (e.g. lost connection mid-flight) -> save offline
+      const saved = saveOfflineEntry(
+        { date, title, content, mood, weather, images: uploadedImages, voiceNote },
+        existingEntry ? existingEntry.id : undefined
+      );
+      setExistingEntry({
+        id: saved.id,
+        title: saved.title,
+        content: saved.content,
+        mood: saved.mood,
+        weather: saved.weather,
+        images: saved.images || [],
+        voiceNote: saved.voiceNote || null,
+        isOffline: true,
+      });
+      setSuccessMsg('Saved offline! Will sync when connected. 💕');
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3500);
     }
 
     setSaving(false);
@@ -265,7 +472,7 @@ export default function DiaryEntryPage() {
           animate={{ opacity: [0.4, 1, 0.4] }}
           transition={{ repeat: Infinity, duration: 1.5 }}
         >
-          Opening your diary...
+          Opening your diary... 💕
         </motion.p>
       </div>
     );
@@ -281,7 +488,7 @@ export default function DiaryEntryPage() {
 
   return (
     <div className="diary-bg min-h-screen">
-      {/* Floating hearts background (subtle) */}
+      {/* Floating hearts background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         {[...Array(4)].map((_, i) => (
           <span
@@ -300,7 +507,7 @@ export default function DiaryEntryPage() {
 
       <div className="relative z-10 p-4 pb-28 space-y-5 max-w-lg mx-auto">
         {/* Header with back button */}
-        <div className="flex items-center gap-3 pt-2">
+        <div className="flex items-center justify-between pt-2">
           <button
             onClick={() => router.push('/diary')}
             className="text-pink-500 hover:text-pink-700 transition-colors flex items-center gap-1 min-h-[44px]"
@@ -309,12 +516,27 @@ export default function DiaryEntryPage() {
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
               <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
             </svg>
+            <span className="text-sm font-medium">Diary</span>
           </button>
-          {isReadonly && (
-            <span className="text-xs bg-pink-200 text-pink-700 px-3 py-1 rounded-full font-medium">
-              Read Only
-            </span>
-          )}
+
+          <div className="flex items-center gap-2">
+            {isOffline && (
+              <span className="text-xs bg-amber-100 text-amber-800 border border-amber-200 px-3 py-1 rounded-full font-medium flex items-center gap-1.5 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                Offline
+              </span>
+            )}
+            {existingEntry?.isOffline && (
+              <span className="text-xs bg-pink-100 text-pink-700 px-3 py-1 rounded-full font-medium">
+                Pending Sync ⏳
+              </span>
+            )}
+            {isReadonly && (
+              <span className="text-xs bg-pink-200 text-pink-700 px-3 py-1 rounded-full font-medium">
+                Read Only
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Beautiful date header */}
@@ -489,8 +711,8 @@ export default function DiaryEntryPage() {
               <button
                 type="button"
                 onClick={() => imageInputRef.current?.click()}
-                disabled={uploadingImage}
-                className="w-full py-3 px-4 bg-white border-2 border-dashed border-pink-200 rounded-xl text-pink-500 font-medium hover:bg-pink-50 transition-all text-sm flex items-center justify-center gap-2"
+                disabled={uploadingImage || isOffline}
+                className="w-full py-3 px-4 bg-white border-2 border-dashed border-pink-200 rounded-xl text-pink-500 font-medium hover:bg-pink-50 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {uploadingImage ? (
                   <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }}>
@@ -499,7 +721,11 @@ export default function DiaryEntryPage() {
                 ) : (
                   '📷'
                 )}
-                {uploadingImage ? 'Uploading...' : 'Add Photo'}
+                {uploadingImage
+                  ? 'Uploading...'
+                  : isOffline
+                  ? 'Photo upload unavailable offline'
+                  : 'Add Photo'}
               </button>
             </>
           )}
@@ -557,14 +783,14 @@ export default function DiaryEntryPage() {
               <button
                 type="button"
                 onClick={isRecording ? stopRecording : startRecording}
-                disabled={uploadingVoice}
-                className={`flex-1 py-3 px-4 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all ${
+                disabled={uploadingVoice || isOffline}
+                className={`flex-1 py-3 px-4 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 ${
                   isRecording
                     ? 'bg-pink-500 text-white animate-pulse'
                     : 'bg-white border border-pink-200 text-pink-600 hover:bg-pink-50'
                 }`}
               >
-                {isRecording ? '⏹️ Stop' : '🎙️ Record'}
+                {isRecording ? '⏹️ Stop' : isOffline ? '🎙️ Record (Requires Online)' : '🎙️ Record'}
               </button>
 
               <input
@@ -578,8 +804,8 @@ export default function DiaryEntryPage() {
               <button
                 type="button"
                 onClick={() => voiceInputRef.current?.click()}
-                disabled={uploadingVoice || isRecording}
-                className="py-3 px-4 bg-white border border-pink-200 rounded-xl text-pink-600 font-medium text-sm hover:bg-pink-50 transition-all"
+                disabled={uploadingVoice || isRecording || isOffline}
+                className="py-3 px-4 bg-white border border-pink-200 rounded-xl text-pink-600 font-medium text-sm hover:bg-pink-50 transition-all disabled:opacity-50"
               >
                 {uploadingVoice ? '⏳' : '📁 Upload'}
               </button>
@@ -622,17 +848,17 @@ export default function DiaryEntryPage() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="p-3 bg-green-50 border border-green-200 rounded-xl text-center"
             >
-              <p className="text-sm text-green-700">Saved with love! 💕</p>
+              <p className="text-sm text-green-700 font-medium">{successMsg}</p>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Save Button — only when not readonly */}
+        {/* Save Button */}
         {!isReadonly && (
           <motion.button
             onClick={handleSave}
             disabled={saving}
-            className="w-full py-4 bg-gradient-to-r from-pink-400 to-pink-500 text-white font-semibold rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-base disabled:opacity-60"
+            className="w-full py-4 bg-gradient-to-r from-pink-400 to-pink-500 text-white font-semibold rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-base disabled:opacity-60 active:scale-[0.98]"
             whileTap={{ scale: 0.97 }}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -645,7 +871,7 @@ export default function DiaryEntryPage() {
             ) : (
               <span>💕</span>
             )}
-            {saving ? 'Saving...' : 'Save with love'}
+            {saving ? 'Saving...' : isOffline ? 'Save Offline (Auto-Sync)' : 'Save with love'}
           </motion.button>
         )}
       </div>

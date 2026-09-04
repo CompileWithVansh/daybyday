@@ -1,7 +1,9 @@
-const CACHE_NAME = 'daybyday-pwa-v2';
+const CACHE_NAME = 'daybyday-pwa-v3';
 const PRECACHE_ASSETS = [
   '/',
   '/home',
+  '/diary',
+  '/diary/new',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
@@ -52,7 +54,11 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => {
           return caches.match(request).then((cached) => {
-            return cached || caches.match('/home') || caches.match('/');
+            if (cached) return cached;
+            if (url.pathname.startsWith('/diary')) {
+              return caches.match('/diary') || caches.match('/home') || caches.match('/');
+            }
+            return caches.match('/home') || caches.match('/');
           });
         })
     );

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { validatePin, setPin } from '@/actions/pin.actions';
 import { isLocked, processPinAttempt, PinState, MAX_ATTEMPTS } from '@/lib/pin';
+import { cachePinHash, verifyOfflinePin, setPinVerifiedInSession } from '@/lib/offlineStorage';
 import { PinkButton } from './PinkButton';
 
 interface PinGateProps {
@@ -121,9 +122,38 @@ export function PinGate({ onSuccess, hasPin }: PinGateProps) {
       setError(null);
 
       const pinString = digits.join('');
+
+      // If offline, check against locally cached PIN hash
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        const isCorrectOffline = await verifyOfflinePin(pinString);
+        if (isCorrectOffline) {
+          setPinVerifiedInSession(true);
+          onSuccess();
+          setIsLoading(false);
+          return;
+        } else {
+          setShake(true);
+          setTimeout(() => setShake(false), 500);
+          setError('Incorrect PIN (Offline mode).');
+          setLocalPin(['', '', '', '']);
+          setTimeout(() => inputRefs.current[0]?.focus(), 100);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       const result = await validatePin(pinString);
 
       if (!result.success) {
+        // In case network dropped mid-request, try offline verification
+        const isCorrectOffline = await verifyOfflinePin(pinString);
+        if (isCorrectOffline) {
+          setPinVerifiedInSession(true);
+          onSuccess();
+          setIsLoading(false);
+          return;
+        }
+
         setError(result.error || 'Validation failed');
         setIsLoading(false);
         return;
@@ -134,6 +164,9 @@ export function PinGate({ onSuccess, hasPin }: PinGateProps) {
       setPinState(newState);
 
       if (granted) {
+        // Cache valid PIN hash for offline use and set session flag
+        await cachePinHash(pinString);
+        setPinVerifiedInSession(true);
         onSuccess();
       } else {
         // Trigger shake animation
@@ -180,6 +213,8 @@ export function PinGate({ onSuccess, hasPin }: PinGateProps) {
     const result = await setPin(pinString);
 
     if (result.success) {
+      await cachePinHash(pinString);
+      setPinVerifiedInSession(true);
       onSuccess();
     } else {
       setError(result.error || 'Failed to set PIN');

@@ -7,6 +7,7 @@ import { PageTransition } from '@/components/PageTransition';
 import { getMeetingDate, setMeetingDate } from '@/actions/meeting.actions';
 import { logout } from '@/actions/auth.actions';
 import { usePwaInstall } from '@/lib/usePwaInstall';
+import { getCachedEntries, getSyncQueue, syncPendingEntries } from '@/lib/offlineStorage';
 
 export default function SettingsPage() {
   const [date, setDate] = useState('');
@@ -134,6 +135,30 @@ export default function SettingsPage() {
         <PwaSettingsSection />
       </PinkCard>
 
+      {/* Opening Heart Animation Section */}
+      <PinkCard>
+        <h2 className="text-lg font-semibold text-pink-800 mb-2 flex items-center gap-2">
+          <span>❤️</span> Opening Heart Animation
+        </h2>
+        <p className="text-xs text-pink-600 mb-4 leading-relaxed">
+          The romantic heart drawing animation composed of "I love you" notes. Set how often it plays when you open DayByDay.
+        </p>
+
+        <HeartAnimationSettingsSection />
+      </PinkCard>
+
+      {/* Offline Diary & Sync Section */}
+      <PinkCard>
+        <h2 className="text-lg font-semibold text-pink-800 mb-2 flex items-center gap-2">
+          <span>📖</span> Offline Diary Storage & Sync
+        </h2>
+        <p className="text-xs text-pink-600 mb-4 leading-relaxed">
+          Write diary entries anytime without internet. All offline entries are saved safely on your device and auto-sync when online.
+        </p>
+
+        <OfflineDiarySettingsSection />
+      </PinkCard>
+
       {/* Logout */}
       <PinkCard>
         <h2 className="text-lg font-semibold text-pink-800 mb-4">Account</h2>
@@ -211,4 +236,153 @@ function PwaSettingsSection() {
     </div>
   );
 }
+
+function HeartAnimationSettingsSection() {
+  const [mode, setMode] = useState('first_3');
+  const [playCount, setPlayCount] = useState(0);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setMode(localStorage.getItem('daybyday_heart_intro_mode') || 'first_3');
+      setPlayCount(parseInt(localStorage.getItem('daybyday_heart_intro_count') || '0', 10));
+    }
+  }, []);
+
+  const handleModeChange = (newMode: string) => {
+    setMode(newMode);
+    localStorage.setItem('daybyday_heart_intro_mode', newMode);
+  };
+
+  const handleResetCount = () => {
+    localStorage.setItem('daybyday_heart_intro_count', '0');
+    sessionStorage.removeItem('daybyday_heart_session_shown');
+    setPlayCount(0);
+  };
+
+  const handlePreview = () => {
+    window.dispatchEvent(new Event('daybyday-replay-heart-anim'));
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between p-3 bg-pink-50/70 rounded-xl border border-pink-100">
+        <div>
+          <p className="text-xs font-semibold text-pink-900">Preview Heart Animation</p>
+          <p className="text-[11px] text-pink-500">Play the glowing parametric &apos;I love you&apos; heart</p>
+        </div>
+        <button
+          type="button"
+          onClick={handlePreview}
+          className="px-3.5 py-1.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-xs font-semibold shadow-sm active:scale-95 transition-all flex items-center gap-1"
+        >
+          <span>💕</span> Preview
+        </button>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-pink-800">Launch Frequency</label>
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          {[
+            { id: 'first_3', label: 'First 3 Times' },
+            { id: 'always', label: 'Every Open' },
+            { id: 'never', label: 'Disabled' },
+          ].map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => handleModeChange(opt.id)}
+              className={`py-2 px-2 rounded-xl font-medium text-center border transition-all ${
+                mode === opt.id
+                  ? 'bg-pink-500 text-white border-pink-500 shadow-sm'
+                  : 'bg-white text-pink-700 border-pink-200 hover:bg-pink-50'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between text-[11px] text-pink-500 pt-1">
+        <span>Times played on launch: <strong>{playCount}</strong></span>
+        <button
+          type="button"
+          onClick={handleResetCount}
+          className="text-pink-600 hover:underline font-medium"
+        >
+          Reset Counter
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function OfflineDiarySettingsSection() {
+  const [cachedCount, setCachedCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  const refreshCounts = () => {
+    setCachedCount(getCachedEntries().length);
+    setPendingCount(getSyncQueue().length);
+  };
+
+  useEffect(() => {
+    refreshCounts();
+  }, []);
+
+  const handleSync = async () => {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      setSyncMessage('Cannot sync: device is currently offline.');
+      setTimeout(() => setSyncMessage(null), 3500);
+      return;
+    }
+    setSyncing(true);
+    setSyncMessage(null);
+    const res = await syncPendingEntries();
+    setSyncing(false);
+    refreshCounts();
+    if (res.syncedCount > 0) {
+      setSyncMessage(`Successfully synced ${res.syncedCount} entries! 💕`);
+    } else if (res.errors.length > 0) {
+      setSyncMessage(`Sync error: ${res.errors[0]}`);
+    } else {
+      setSyncMessage('All offline entries are already up to date! ✨');
+    }
+    setTimeout(() => setSyncMessage(null), 4000);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="p-3 bg-pink-50/70 rounded-xl border border-pink-100 text-center">
+          <p className="text-[11px] text-pink-500 font-medium">Cached Entries</p>
+          <p className="text-lg font-bold text-pink-900 mt-0.5">{cachedCount}</p>
+        </div>
+        <div className="p-3 bg-pink-50/70 rounded-xl border border-pink-100 text-center">
+          <p className="text-[11px] text-pink-500 font-medium">Pending Sync</p>
+          <p className="text-lg font-bold text-pink-900 mt-0.5">{pendingCount}</p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={handleSync}
+        disabled={syncing}
+        className="w-full py-2.5 px-4 rounded-xl bg-pink-500 hover:bg-pink-600 active:scale-95 text-white text-xs font-semibold shadow-sm transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+      >
+        <span>{syncing ? '🔄' : '⚡'}</span>
+        {syncing ? 'Syncing with Server...' : 'Sync Offline Entries Now'}
+      </button>
+
+      {syncMessage && (
+        <p className="text-xs text-center font-medium text-pink-700 bg-pink-50 p-2 rounded-xl border border-pink-100">
+          {syncMessage}
+        </p>
+      )}
+    </div>
+  );
+}
+
 

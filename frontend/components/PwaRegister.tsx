@@ -1,7 +1,7 @@
 'use client';
-
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { usePwaInstall } from '@/lib/usePwaInstall';
+import { syncPendingEntries } from '@/lib/offlineStorage';
 
 export default function PwaRegister() {
   const {
@@ -16,6 +16,8 @@ export default function PwaRegister() {
 
   const [showIosModal, setShowIosModal] = useState(false);
   const [offlineToast, setOfflineToast] = useState(false);
+  const [syncToast, setSyncToast] = useState<string | null>(null);
+  const prevOnlineRef = useRef<boolean>(isOnline);
 
   // Register service worker
   useEffect(() => {
@@ -45,14 +47,24 @@ export default function PwaRegister() {
     }
   }, []);
 
-  // Monitor offline state
+  // Monitor offline & sync on reconnect
   useEffect(() => {
     if (!isOnline) {
       setOfflineToast(true);
     } else {
       const timer = setTimeout(() => setOfflineToast(false), 3000);
+      // If we just reconnected from offline, auto-sync pending entries!
+      if (prevOnlineRef.current === false) {
+        syncPendingEntries().then((res) => {
+          if (res.syncedCount > 0) {
+            setSyncToast(`✨ Synced ${res.syncedCount} offline ${res.syncedCount === 1 ? 'entry' : 'entries'}!`);
+            setTimeout(() => setSyncToast(null), 4000);
+          }
+        });
+      }
       return () => clearTimeout(timer);
     }
+    prevOnlineRef.current = isOnline;
   }, [isOnline]);
 
   if (isStandalone) {
@@ -62,6 +74,12 @@ export default function PwaRegister() {
           <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[100] bg-amber-500 text-white text-xs font-semibold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 animate-bounce">
             <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
             Working Offline
+          </div>
+        )}
+        {syncToast && (
+          <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[100] bg-emerald-600 text-white text-xs font-semibold px-4 py-1.5 rounded-full shadow-xl flex items-center gap-1.5 animate-fade-in-up">
+            <span>💕</span>
+            {syncToast}
           </div>
         )}
       </>
@@ -77,6 +95,14 @@ export default function PwaRegister() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 010 12.728m-12.728 0a9 9 0 010-12.728m2.828 2.828a6 6 0 018.485 0m-8.485 5.657a6 6 0 018.485 0" />
           </svg>
           Offline Mode Enabled
+        </div>
+      )}
+
+      {/* Sync Success Toast */}
+      {syncToast && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[100] bg-emerald-600 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-xl flex items-center gap-2 animate-fade-in-up">
+          <span>💕</span>
+          {syncToast}
         </div>
       )}
 

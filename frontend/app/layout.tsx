@@ -3,6 +3,7 @@ import { Dancing_Script } from 'next/font/google';
 import './globals.css';
 import NotificationManager from '@/components/NotificationManager';
 import PwaRegister from '@/components/PwaRegister';
+import OpeningHeartAnimation from '@/components/OpeningHeartAnimation';
 
 const dancingScript = Dancing_Script({
   subsets: ['latin'],
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     title: 'DayByDay',
   },
   icons: {
@@ -43,7 +44,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`min-h-screen ${dancingScript.variable}`}>
+      <body className={`min-h-screen bg-pink-50/20 ${dancingScript.variable}`}>
+        <OpeningHeartAnimation />
         <NotificationManager />
         <PwaRegister />
         {children}
