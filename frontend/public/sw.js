@@ -1,7 +1,8 @@
-const CACHE_NAME = 'daybyday-pwa-v3';
+const CACHE_NAME = 'daybyday-pwa-v4';
 const PRECACHE_ASSETS = [
   '/',
   '/home',
+  '/garden',
   '/diary',
   '/diary/new',
   '/manifest.json',

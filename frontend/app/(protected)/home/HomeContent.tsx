@@ -98,7 +98,7 @@ export function HomeContent({ meetingData }: HomeContentProps) {
                 </svg>
               </div>
               <div className="text-left">
-                <p className="text-sm font-semibold text-pink-800 font-sans">Pakhi's College Timetable</p>
+                <p className="text-sm font-semibold text-pink-800 font-sans">Pakhi&apos;s College Timetable</p>
                 <p className="text-[11px] text-pink-400 font-sans">Check class hours & free timings 🌸</p>
               </div>
             </div>
@@ -108,6 +108,97 @@ export function HomeContent({ meetingData }: HomeContentProps) {
               </svg>
             </div>
           </Link>
+
+          {/* Our Little World Entrance Card */}
+          <div className="bg-[#101A32] text-white rounded-3xl p-5 border border-indigo-950/60 shadow-xl overflow-hidden relative group">
+            {/* Ambient subtle glow background */}
+            <div className="absolute -top-16 -right-16 w-40 h-40 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-16 -left-16 w-40 h-40 bg-[#55DDF0]/10 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Small Heading */}
+            <p className="text-[10px] font-bold tracking-widest uppercase text-indigo-300/90 font-sans mb-1">
+              DAYBYDAY · OUR LITTLE WORLD
+            </p>
+
+            {/* Main Heading */}
+            <h3 className="text-2xl font-bold tracking-tight text-white mb-1.5">
+              A little place for us.
+            </h3>
+
+            {/* Supporting Text */}
+            <p className="text-xs text-indigo-200/80 leading-relaxed font-sans mb-4">
+              Every answer plants a seed. Every memory makes it bloom.
+            </p>
+
+            {/* Large Illustrated Garden Scene Preview */}
+            <Link
+              href="/garden"
+              className="block relative rounded-2xl overflow-hidden border border-indigo-800/40 shadow-inner group/art focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              aria-label="Enter Our Little World"
+            >
+              <img
+                src="/images/garden_world.jpg"
+                alt="Our Little World Garden Scene"
+                className="w-full h-48 sm:h-56 object-cover group-hover/art:scale-105 transition-transform duration-500 ease-out"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#101A32]/80 via-transparent to-transparent pointer-events-none" />
+
+              {/* Bottom-left pill badge */}
+              <div className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-[11px] font-medium text-cyan-200 flex items-center gap-1.5 shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-[#55DDF0] animate-pulse" />
+                <span>rosebud</span>
+              </div>
+
+              {/* Bottom-right Enter prompt */}
+              <div className="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-indigo-950/80 backdrop-blur-md border border-indigo-400/30 text-[11px] font-semibold text-indigo-200 flex items-center gap-1 group-hover/art:text-white group-hover/art:border-cyan-400 transition-colors shadow-sm">
+                <span>Enter World</span>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              </div>
+            </Link>
+
+            {/* Two Compact Previews Below */}
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              <Link
+                href="/garden"
+                className="p-3.5 bg-[#172744] hover:bg-[#1c3054] active:scale-[0.98] border border-indigo-800/40 rounded-2xl transition-all group/item flex flex-col justify-between text-left"
+              >
+                <div className="text-[#55DDF0] mb-2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                    <path fillRule="evenodd" d="M12 2.25c.966 0 1.838.39 2.464 1.018a3.486 3.486 0 013.268.72 3.5 3.5 0 011.018 2.464 3.486 3.486 0 01.72 3.268 3.5 3.5 0 01-1.018 2.464 3.486 3.486 0 01-.72 3.268 3.5 3.5 0 01-2.464 1.018 3.486 3.486 0 01-3.268.72 3.5 3.5 0 01-2.464-1.018 3.486 3.486 0 01-3.268-.72 3.5 3.5 0 01-1.018-2.464 3.486 3.486 0 01-.72-3.268 3.5 3.5 0 011.018-2.464 3.486 3.486 0 01.72-3.268 3.5 3.5 0 012.464-1.018 3.486 3.486 0 013.268-.72c.626-.628 1.498-1.018 2.464-1.018zm0 6a3.75 3.75 0 100 7.5 3.75 3.75 0 000-7.5z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-white group-hover/item:text-[#55DDF0] transition-colors font-sans">
+                    Our Garden
+                  </p>
+                  <p className="text-[11px] text-indigo-300 font-sans mt-0.5">
+                    Watch it grow
+                  </p>
+                </div>
+              </Link>
+
+              <Link
+                href="/garden"
+                className="p-3.5 bg-[#172744] hover:bg-[#1c3054] active:scale-[0.98] border border-indigo-800/40 rounded-2xl transition-all group/item flex flex-col justify-between text-left"
+              >
+                <div className="text-pink-400 mb-2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-white group-hover/item:text-pink-300 transition-colors font-sans">
+                    Today&apos;s Question
+                  </p>
+                  <p className="text-[11px] text-indigo-300 font-sans mt-0.5">
+                    Answer together
+                  </p>
+                </div>
+              </Link>
+            </div>
+          </div>
 
           {/* Test Notifications Panel (Only visible in local development environment) */}
           {process.env.NODE_ENV === 'development' && (

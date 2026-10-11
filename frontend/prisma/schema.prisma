@@ -100,3 +100,33 @@ model TimetableSlot {
   updatedAt  DateTime @updatedAt
 }
 
+model GardenState {
+  id              Int      @id @default(autoincrement())
+  waterCount      Int      @default(3)
+  lastWateredAt   DateTime @default(now())
+  lastWateredBy   String?
+  vanshMood       String?
+  pakhiMood       String?
+  vanshMoodAt     DateTime?
+  pakhiMoodAt     DateTime?
+  currentPromptId Int      @default(1)
+  vanshChoice     String?
+  pakhiChoice     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model GardenDailyQuestion {
+  id          Int      @id @default(autoincrement())
+  dateStr     String   @unique
+  intro       String?
+  question    String
+  options     String
+  vanshAnswer String?
+  pakhiAnswer String?
+  vanshAt     DateTime?
+  pakhiAt     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+

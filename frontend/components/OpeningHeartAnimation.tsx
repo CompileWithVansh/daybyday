@@ -108,9 +108,8 @@ export default function OpeningHeartAnimation() {
 
     ctx.scale(dpr, dpr);
 
-    // Clean white canvas background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
+    // Clean transparent canvas
+    ctx.clearRect(0, 0, width, height);
 
     // Exactly TWO concentric circles / loops:
     // Scale 15.5 for outer loop, 13.0 for inner loop
